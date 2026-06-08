@@ -1,4 +1,3 @@
-// src/App.jsx
 import { useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Stars } from '@react-three/drei'
@@ -8,6 +7,14 @@ export default function App() {
   const [gameState, setGameState] = useState('MENU') 
   const [score, setScore] = useState(0)
   const [coinsCollected, setCoinsCollected] = useState(0)
+  const [level, setLevel] = useState('EASY') // poziomu ('EASY', 'MEDIUM', 'HARD')
+
+  // Nazwy poziomów
+  const getLevelName = () => {
+    if (level === 'EASY') return 'ŁATWY'
+    if (level === 'MEDIUM') return 'ŚREDNI'
+    return 'TRUDNY'
+  }
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#000' }}>
@@ -18,10 +25,8 @@ export default function App() {
         <ambientLight intensity={0.7} />
         <directionalLight position={[5, 10, 5]} intensity={1.5} />
         
-        {/* GWIAZDY DLA MENU GŁÓWNEGO */}
         {gameState === 'MENU' && (
           <group>
-            {/* Ta mikroskopijna, niewidzialna kostka zmusza Canvas do prawidłowego wyrenderowania gwiazd w menu */}
             <mesh position={[0, 0, 0]}>
               <boxGeometry args={[0.001, 0.001, 0.001]} />
               <meshBasicMaterial color="black" transparent opacity={0} />
@@ -30,39 +35,62 @@ export default function App() {
           </group>
         )}
 
-        {/* Właściwa gra włącza się po wyjściu z menu */}
         {gameState !== 'MENU' && (
           <Game 
             gameState={gameState} 
             setGameState={setGameState} 
             setScore={setScore} 
             setCoinsCollected={setCoinsCollected}
+            level={level}
           />
         )}
       </Canvas>
 
       {/* WARSTWA 2: INTERFEJS 2D */}
       
-      {/* Menu Główne - Przywrócone do stabilnego, ciemnego tła bez żadnego migania */}
+      {/* Menu Główne */}
       {gameState === 'MENU' && (
         <div style={overlayStyle}>
-          <h1 style={{ fontSize: '3rem', marginBottom: '10px', color: '#ff007f' }}>KOSMICZNY WYŚCIG</h1>
-          <h2 style={{ fontSize: '1.8rem', marginBottom: '20px', color: '#00ffff' }}>POZIOM 1</h2>
-          <p style={{ marginBottom: '30px', color: '#ccc' }}>Dojedź do końca trasy (1000 pkt). Unikaj wież, zbieraj złote monety!</p>
-          <button style={buttonStyle} onClick={() => { setScore(0); setCoinsCollected(0); setGameState('PLAYING'); }}>
-            POZIOM 1
-          </button>
+          <h1 style={{ fontSize: '3rem', marginBottom: '5px', color: '#ff007f' }}>KOSMICZNY WYŚCIG</h1>
+          <p style={{ marginBottom: '30px', color: '#ccc' }}>Unikaj wież, zbieraj złote monety! Wybierz poziom trudności:</p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>  
+            {/* Poziom Łatwy */}
+            <button 
+              style={{ ...buttonStyle, background: '#ff007f', color: '#fff' }} 
+              onClick={() => { setScore(0); setCoinsCollected(0); setLevel('EASY'); setGameState('PLAYING'); }}
+            >
+              ŁATWY
+            </button>
+            
+            {/* Poziom Średni */}
+            <button 
+              style={{ ...buttonStyle, background: '#00ffff', color: '#000' }} 
+              onClick={() => { setScore(0); setCoinsCollected(0); setLevel('MEDIUM'); setGameState('PLAYING'); }}
+            >
+              ŚREDNI
+            </button>
+            
+            {/* Poziom Trudny */}
+            <button 
+              style={{ ...buttonStyle, background: '#ff0000', color: '#fff' }} 
+              onClick={() => { setScore(0); setCoinsCollected(0); setLevel('HARD'); setGameState('PLAYING'); }}
+            >
+              TRUDNY
+            </button>
+
+          </div>
         </div>
       )}
 
-      {/* Licznik punktów i informacja o poziomie w trakcie gry */}
+      {/* Licznik w trakcie gry */}
       {gameState === 'PLAYING' && (
         <div style={ingameHUDStyle}>
           <div style={{ fontSize: '1rem', color: '#00ffff', letterSpacing: '2px', marginBottom: '5px' }}>
-            POZIOM 1
+            POZIOM: {getLevelName()}
           </div>
           <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'white' }}>
-            DYSTANS: {score} / 1000
+            DYSTANS: {score} {level === 'EASY' ? '/ 1000' : level === 'MEDIUM' ? '/ 2000' : ''}
           </div>
           <div style={{ fontSize: '1.8rem', color: '#ffd700', marginTop: '5px', display: 'flex', alignItems: 'center' }}>
             🪙 MONETY: {coinsCollected}
@@ -74,7 +102,7 @@ export default function App() {
       {gameState === 'WIN' && (
         <div style={{ ...overlayStyle, background: 'rgba(0, 40, 20, 0.8)' }}>
           <h1 style={{ fontSize: '3.5rem', color: '#00ffcc', marginBottom: '10px', textShadow: '0 0 20px #00ffcc' }}>
-            POZIOM UKOŃCZONY!
+            POZIOM {getLevelName()} UKOŃCZONY!
           </h1>
           
           <div style={statsBoxStyle}>
@@ -90,16 +118,14 @@ export default function App() {
               <span>⭐ Bonus za monety:</span> 
               <span style={{ color: '#00ffff', fontWeight: 'bold' }}>+{coinsCollected * 100} pkt</span>
             </p>
-            
             <hr style={{ borderColor: '#444', margin: '15px 0' }} />
-            
             <p style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.4rem', fontWeight: 'bold' }}>
               <span>WYNIK KOŃCOWY:</span> 
               <span style={{ color: '#ff007f' }}>{score + (coinsCollected * 100)}</span>
             </p>
           </div>
 
-          <button style={{ ...buttonStyle, background: '#00cc88' }} onClick={() => setGameState('MENU')}>
+          <button style={{ ...buttonStyle, background: '#444' }} onClick={() => setGameState('MENU')}>
             WRÓĆ DO MENU
           </button>
         </div>
@@ -109,16 +135,23 @@ export default function App() {
       {gameState === 'GAMEOVER' && (
         <div style={gameOverOverlayStyle}>
           <h1 style={{ fontSize: '3rem', color: 'red', marginBottom: '10px' }}>KONIEC GRY</h1>
+          <h3 style={{ color: '#aaa', marginBottom: '15px' }}>Poziom: {getLevelName()}</h3>
           
           <div style={statsBoxStyle}>
             <p style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>💀 Postęp poziomu:</span>
-              <span style={{ color: 'red', fontWeight: 'bold' }}>{Math.floor((score/1000)*100)}%</span>
+              <span style={{ color: 'red', fontWeight: 'bold' }}>
+                {level === 'HARD' ? 'Tryb Bez Końca' : `${Math.floor((score / (level === 'EASY' ? 1000 : 2000)) * 100)}%`}
+              </span>
             </p>
+
             <p style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>🏁 Dystans:</span>
-              <span style={{ color: '#fff', fontWeight: 'bold' }}>{score} / 1000</span>
+              <span style={{ color: '#fff', fontWeight: 'bold' }}>
+                {score} {level === 'EASY' ? '/ 1000' : level === 'MEDIUM' ? '/ 2000' : 'metrów'}
+              </span>
             </p>
+
             <p style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>🪙 Zebrane monety:</span>
               <span style={{ color: '#ffd700', fontWeight: 'bold' }}>{coinsCollected} szt.</span>
@@ -129,11 +162,7 @@ export default function App() {
             <button style={buttonStyle} onClick={() => { setScore(0); setCoinsCollected(0); setGameState('PLAYING'); }}>
               SPRÓBUJ PONOWNIE
             </button>
-
-            <button 
-              style={{ ...buttonStyle, background: '#333', color: '#ccc', fontSize: '1.2rem', padding: '10px 20px' }} 
-              onClick={() => setGameState('MENU')}
-            >
+            <button style={{ ...buttonStyle, background: '#333', color: '#ccc', fontSize: '1.2rem', padding: '10px 20px' }} onClick={() => setGameState('MENU')}>
               MENU GŁÓWNE
             </button>
           </div>
@@ -151,7 +180,7 @@ const overlayStyle = {
   display: 'flex', flexDirection: 'column',
   justifyContent: 'center', alignItems: 'center',
   color: 'white',
-  background: 'rgba(0, 0, 0, 0.75)', // 0.75 daje idealną widoczność gwiazd z tyłu
+  background: 'rgba(0, 0, 0, 0.85)',
   zIndex: 10
 }
 
@@ -174,7 +203,7 @@ const statsBoxStyle = {
   borderRadius: '12px',
   padding: '25px 35px',
   marginBottom: '25px',
-  width: '420px',           
+  width: '420px',
   fontSize: '1.2rem',
   lineHeight: '2.2rem',
   textAlign: 'left'
@@ -196,10 +225,8 @@ const buttonStyle = {
 
 const ingameHUDStyle = {
   position: 'absolute',
-  top: '20px',
-  left: '20px',
-  display: 'flex',
-  flexDirection: 'column',
+  top: '20px', left: '20px',
+  display: 'flex', flexDirection: 'column',
   zIndex: 5, 
   pointerEvents: 'none', 
   textShadow: '3px 3px 6px rgba(0,0,0,0.9), -1px -1px 0 rgba(0,0,0,0.5)'
