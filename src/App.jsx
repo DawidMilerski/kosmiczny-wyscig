@@ -12,6 +12,15 @@ const SHOP_COLORS = [
   '#ffd700', '#ff69b4', '#00fa9a', '#1e90ff', '#9400d3'
 ]
 
+// Lista kolorów gracza
+const SHOP_COLORS = [
+  '#ff007f', '#ff5500', '#ffaa00', '#ffee00', '#aaff00',
+  '#00ff00', '#00ffaa', '#00ffff', '#00aaff', '#0055ff',
+  '#0000ff', '#5500ff', '#aa00ff', '#ff00ff', '#ff00aa',
+  '#ff3333', '#33ff33', '#3333ff', '#ffff33', '#33ffff',
+  '#ffd700', '#ff69b4', '#00fa9a', '#1e90ff', '#9400d3'
+]
+
 export default function App() {
   const [gameState, setGameState] = useState('MENU') 
   const [score, setScore] = useState(0)
@@ -203,6 +212,7 @@ export default function App() {
         )}
 
         {gameState !== 'MENU' && gameState !== 'SHOP' && (
+        {gameState !== 'MENU' && gameState !== 'SHOP' && (
           <Game 
             gameState={gameState} 
             setGameState={changeGameState}
@@ -229,6 +239,7 @@ export default function App() {
 
           <p style={{ marginBottom: '20px', color: '#ccc' }}>Unikaj wież, zbieraj złote monety!</p>
 
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>  
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>  
             
             {/* Poziom Łatwy */}
@@ -466,6 +477,7 @@ const buttonStyle = {
   borderRadius: '8px',
   cursor: 'pointer',
   width: '420px',          
+  height: '65px',
   height: '65px',
   textAlign: 'center',
   transition: '0.2s',

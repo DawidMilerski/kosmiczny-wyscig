@@ -24,23 +24,10 @@ const SECTIONS = [
   ]
 ]
 
-export default function Game({ gameState, setGameState, setScore, setCoinsCollected, level, playerColor, isMuted }) {
+export default function Game({ gameState, setGameState, setScore, setCoinsCollected, level, playerColor }) {
   const playerRef = useRef()
   const starsRef = useRef() 
-  const coinAudio = useRef(null)
-
-  useEffect(() => {
-    coinAudio.current = new Audio('/coin.mp3')
-    coinAudio.current.volume = 0.3
-  }, [])
-
-  // Wyciszenie dzwieku monetu
-  useEffect(() => {
-    if (coinAudio.current) {
-      coinAudio.current.muted = isMuted
-    }
-  }, [isMuted])
-
+  
   // Dynamiczne parametry gry zależne od poziomu trudności (level)
   let speed = 16            
   let themeColor = '#ff007f' 
@@ -177,7 +164,7 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
       }
     })
 
-    // WYKRYWANIE MONET (+ ODTWARZANIE AUDIO)
+    // WYKRYWANIE MONET
     setCoins((prevCoins) => {
       return prevCoins.filter((coin) => {
         if (coin[4] === true) return false
@@ -186,13 +173,6 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
         if (diffX < 1.0 && diffZ < 1.0) {
           coin[4] = true 
           setCoinsCollected((prev) => prev + 1) 
-          
-          // Dźwięk monety
-          if (coinAudio.current) {
-            coinAudio.current.currentTime = 0
-            coinAudio.current.play().catch(() => {})
-          }
-
           return false 
         }
         return true 
