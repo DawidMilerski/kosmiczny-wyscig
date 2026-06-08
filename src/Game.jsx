@@ -62,6 +62,38 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
   const starsRef = useRef() 
   const coinAudio = useRef(null)
 
+  // --- PARAMETRY PROGRESJI PRĘDKOŚCI ---
+  let initialSpeed = 16            
+  let maxSpeedLimit = 30
+  let accelerationRate = 0.2
+  let themeColor = '#ff007f' 
+  let sectionSpacing = 130   
+  let maxRoadLength = 1000
+
+  if (level === 'MEDIUM') {
+    initialSpeed = 26              
+    maxSpeedLimit = 45
+    accelerationRate = 0.3
+    themeColor = '#00ffff'   
+    sectionSpacing = 95     
+    maxRoadLength = 2000        
+  } else if (level === 'HARD') {
+    initialSpeed = 36              
+    maxSpeedLimit = 65
+    accelerationRate = 0.4
+    themeColor = '#ff0000'   
+    sectionSpacing = 70     
+    maxRoadLength = Infinity
+  }
+
+  const [currentSpeed, setCurrentSpeed] = useState(initialSpeed)
+
+  const [keys, setKeys] = useState({ ArrowLeft: false, ArrowRight: false })
+  const [obstacles, setObstacles] = useState([])
+  const [coins, setCoins] = useState([]) 
+  
+  const generatedUntilZ = useRef(-40)
+
   useEffect(() => {
     coinAudio.current = new Audio('/coin.mp3')
     coinAudio.current.volume = 0.3
@@ -72,29 +104,6 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
       coinAudio.current.muted = isMuted
     }
   }, [isMuted])
-
-  let speed = 16            
-  let themeColor = '#ff007f' 
-  let sectionSpacing = 130   
-  let maxRoadLength = 1000
-
-  if (level === 'MEDIUM') {
-    speed = 26              
-    themeColor = '#00ffff'   
-    sectionSpacing = 95     
-    maxRoadLength = 2000        
-  } else if (level === 'HARD') {
-    speed = 36              
-    themeColor = '#ff0000'   
-    sectionSpacing = 70     
-    maxRoadLength = Infinity
-  }
-
-  const [keys, setKeys] = useState({ ArrowLeft: false, ArrowRight: false })
-  const [obstacles, setObstacles] = useState([])
-  const [coins, setCoins] = useState([]) 
-  
-  const generatedUntilZ = useRef(-40)
 
   const generateNextSection = (targetZ) => {
     const tempObstacles = []
@@ -125,6 +134,7 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
     generatedUntilZ.current = -40
     setObstacles([])
     setCoins([])
+    setCurrentSpeed(initialSpeed)
 
     let startZ = -40
     while (startZ > -400) {
@@ -157,7 +167,12 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
     if (gameState !== 'PLAYING' || !playerRef.current) return
 
     const player = playerRef.current
-    player.position.z -= speed * delta
+
+    let nextSpeed = currentSpeed + accelerationRate * delta
+    if (nextSpeed > maxSpeedLimit) nextSpeed = maxSpeedLimit
+    setCurrentSpeed(nextSpeed)
+
+    player.position.z -= nextSpeed * delta
 
     const distanceToTunnelEnd = Math.abs(generatedUntilZ.current) - Math.abs(player.position.z)
     if (distanceToTunnelEnd < 300 && Math.abs(generatedUntilZ.current) < maxRoadLength) {
@@ -192,14 +207,12 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
     // WYKRYWANIE KOLIZJI + OPTYMALIZACJA (Usuwanie starych wież za plecami gracza)
     setObstacles((prevObstacles) => {
       return prevObstacles.filter((obs) => {
-        // Sprawdzamy kolizję
         const diffX = Math.abs(player.position.x - obs[0])
         const diffZ = Math.abs(player.position.z - obs[2])
         if (diffX < 0.9 && diffZ < 1.0) {
           const exactCrashScore = Math.floor(Math.abs(player.position.z))
           setGameState('GAMEOVER', exactCrashScore)
         }
-        // Czyszczenie pamięci: Zwracamy true tylko dla obiektów przed graczem lub max 20m za nim
         return obs[2] < player.position.z + 20
       })
     })
@@ -222,7 +235,6 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
           }
           return false 
         }
-        // Czyszczenie pamięci: Zwracamy true tylko dla monet przed graczem lub max 20m za nim
         return coin[2] < player.position.z + 20
       })
     })
