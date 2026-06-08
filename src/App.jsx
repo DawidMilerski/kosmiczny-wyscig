@@ -1,7 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Stars } from '@react-three/drei'
 import Game from './Game'
+
+// Lista kolorów gracza
+const SHOP_COLORS = [
+  '#ff007f', '#ff5500', '#ffaa00', '#ffee00', '#aaff00',
+  '#00ff00', '#00ffaa', '#00ffff', '#00aaff', '#0055ff',
+  '#0000ff', '#5500ff', '#aa00ff', '#ff00ff', '#ff00aa',
+  '#ff3333', '#33ff33', '#3333ff', '#ffff33', '#33ffff',
+  '#ffd700', '#ff69b4', '#00fa9a', '#1e90ff', '#9400d3'
+]
 
 export default function App() {
   const [gameState, setGameState] = useState('MENU') 
@@ -12,11 +21,42 @@ export default function App() {
   const [totalCoins, setTotalCoins] = useState(0)
   const [highscores, setHighscores] = useState({ EASY: 0, MEDIUM: 0, HARD: 0 })
 
+  const [activeColor, setActiveColor] = useState('#ff007f')
+  const [ownedColors, setOwnedColors] = useState(['#ff007f'])
+
+  const [isMuted, setIsMuted] = useState(false)
+  const musicRef = useRef(null)
+  const clickAudio = useRef(null)
+  const crashAudio = useRef(null)
+
+  // Inicjalizacja audio
+  const initAudio = () => {
+    if (!musicRef.current) {
+      musicRef.current = new Audio('/music.mp3')
+      musicRef.current.loop = true
+      musicRef.current.volume = 0.2
+      musicRef.current.muted = isMuted
+    }
+    if (!clickAudio.current) {
+      clickAudio.current = new Audio('/click.mp3')
+      clickAudio.current.volume = 0.3
+      clickAudio.current.muted = isMuted
+    }
+    if (!crashAudio.current) {
+      crashAudio.current = new Audio('/crash.mp3')
+      crashAudio.current.volume = 0.6
+      crashAudio.current.muted = isMuted
+    }
+  }
+
   useEffect(() => {
     const savedCoins = localStorage.getItem('total_coins')
     const savedEasy = localStorage.getItem('highscore_EASY')
     const savedMedium = localStorage.getItem('highscore_MEDIUM')
     const savedHard = localStorage.getItem('highscore_HARD')
+    const savedActiveColor = localStorage.getItem('active_color')
+    const savedOwnedColors = localStorage.getItem('owned_colors')
+    const savedMute = localStorage.getItem('game_muted')
 
     if (savedCoins) setTotalCoins(parseInt(savedCoins))
     setHighscores({
@@ -24,7 +64,50 @@ export default function App() {
       MEDIUM: savedMedium ? parseInt(savedMedium) : 0,
       HARD: savedHard ? parseInt(savedHard) : 0
     })
+
+    if (savedActiveColor) setActiveColor(savedActiveColor)
+    if (savedOwnedColors) setOwnedColors(JSON.parse(savedOwnedColors))
+    if (savedMute) setIsMuted(savedMute === 'true')
   }, [])
+
+  // Wyciszenie elementów audio
+  useEffect(() => {
+    if (musicRef.current) musicRef.current.muted = isMuted
+    if (clickAudio.current) clickAudio.current.muted = isMuted
+    if (crashAudio.current) crashAudio.current.muted = isMuted
+    localStorage.setItem('game_muted', isMuted)
+  }, [isMuted])
+
+  // Zatrzymywanie muzyki przy wyjściu ze stanu PLAYING
+  useEffect(() => {
+    if (gameState !== 'PLAYING' && musicRef.current) {
+      musicRef.current.pause()
+    }
+  }, [gameState])
+
+  // Dźwięk przycisku
+  const playClick = () => {
+    initAudio()
+    if (clickAudio.current) {
+      clickAudio.current.currentTime = 0
+      clickAudio.current.play().catch(() => {})
+    }
+  }
+
+  // Uruchomienie gry
+  const startGame = (chosenLevel) => {
+    initAudio()
+    setScore(0)
+    setCoinsCollected(0)
+    setLevel(chosenLevel)
+    setGameState('PLAYING')
+
+    // Muzyka
+    if (musicRef.current) {
+      musicRef.current.currentTime = 0
+      musicRef.current.play().catch((e) => console.log("Błąd odtwarzania muzyki:", e))
+    }
+  }
 
   const updateSavedData = (finalScore, finalCoins) => {
     const newTotalCoins = totalCoins + finalCoins
@@ -41,10 +124,37 @@ export default function App() {
 
   const changeGameState = (newState, finalScoreOverride = null) => {
     if (newState === 'WIN' || newState === 'GAMEOVER') {
+      if (newState === 'GAMEOVER' && crashAudio.current) {
+        crashAudio.current.currentTime = 0
+        crashAudio.current.play().catch((e) => console.log("Błąd odtwarzania crash:", e))
+      }
       const exactScore = finalScoreOverride !== null ? finalScoreOverride : score
       updateSavedData(exactScore, coinsCollected)
     }
     setGameState(newState)
+  }
+
+  const handleColorClick = (color) => {
+    playClick()
+    if (ownedColors.includes(color)) {
+      setActiveColor(color)
+      localStorage.setItem('active_color', color)
+    } else {
+      if (totalCoins >= 100) {
+        const newCoins = totalCoins - 100
+        const newOwned = [...ownedColors, color]
+        
+        setTotalCoins(newCoins)
+        setOwnedColors(newOwned)
+        setActiveColor(color)
+
+        localStorage.setItem('total_coins', newCoins)
+        localStorage.setItem('owned_colors', JSON.stringify(newOwned))
+        localStorage.setItem('active_color', color)
+      } else {
+        alert('Masz za mało monet żeby kupić ten kolor!')
+      }
+    }
   }
 
   const getLevelName = () => {
@@ -56,6 +166,26 @@ export default function App() {
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#000' }}>
       
+      {/* PRZYCISK WYCISZENIA */}
+      <button 
+        onClick={() => { initAudio(); setIsMuted(!isMuted); }}
+        style={{
+          position: 'absolute',
+          top: '20px', right: '20px',
+          zIndex: 100,
+          background: 'rgba(20, 20, 25, 0.7)',
+          border: '1px solid #444',
+          borderRadius: '50%',
+          width: '50px', height: '50px',
+          fontSize: '1.5rem', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', transition: '0.2s'
+        }}
+        title={isMuted ? "Włącz dźwięk" : "Wycisz grę"}
+      >
+        {isMuted ? '🔇' : '🔊'}
+      </button>
+
       {/* WARSTWA 1: GRA 3D */}
       <Canvas key={gameState} camera={{ position: [0, 4, 8], fov: 60 }}>
         <fog attach="fog" args={['#000000', 10, 60]} />
@@ -72,13 +202,16 @@ export default function App() {
           </group>
         )}
 
-        {gameState !== 'MENU' && (
+        {gameState !== 'MENU' && gameState !== 'SHOP' && (
           <Game 
             gameState={gameState} 
             setGameState={changeGameState}
             setScore={setScore} 
             setCoinsCollected={setCoinsCollected}
             level={level}
+            playerColor={activeColor}
+            isMuted={isMuted}
+            initAudioParent={initAudio}
           />
         )}
       </Canvas>
@@ -90,19 +223,18 @@ export default function App() {
         <div style={overlayStyle}>
           <h1 style={{ fontSize: '3rem', marginBottom: '5px', color: '#ff007f' }}>KOSMICZNY WYŚCIG</h1>
           
-          {/* Stan konta gracza */}
           <div style={{ fontSize: '1.4rem', color: '#ffd700', marginBottom: '25px', fontWeight: 'bold' }}>
             🪙 ZGROMADZONE MONETY: {totalCoins}
           </div>
 
           <p style={{ marginBottom: '20px', color: '#ccc' }}>Unikaj wież, zbieraj złote monety!</p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>  
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>  
             
             {/* Poziom Łatwy */}
             <button 
               style={{ ...buttonStyle, background: '#ff007f', color: '#fff' }} 
-              onClick={() => { setScore(0); setCoinsCollected(0); setLevel('EASY'); setGameState('PLAYING'); }}
+              onClick={() => startGame('EASY')}
             >
               <div style={{ fontWeight: 'bold' }}>ŁATWY</div>
               <div style={{ fontSize: '0.9rem', opacity: 0.8, fontWeight: 'normal' }}>🏆 Rekord: {highscores.EASY}m</div>
@@ -111,7 +243,7 @@ export default function App() {
             {/* Poziom Średni */}
             <button 
               style={{ ...buttonStyle, background: '#00ffff', color: '#000' }} 
-              onClick={() => { setScore(0); setCoinsCollected(0); setLevel('MEDIUM'); setGameState('PLAYING'); }}
+              onClick={() => startGame('MEDIUM')}
             >
               <div style={{ fontWeight: 'bold' }}>ŚREDNI</div>
               <div style={{ fontSize: '0.9rem', opacity: 0.8, fontWeight: 'normal' }}>🏆 Rekord: {highscores.MEDIUM}m</div>
@@ -120,13 +252,83 @@ export default function App() {
             {/* Poziom Trudny */}
             <button 
               style={{ ...buttonStyle, background: '#ff0000', color: '#fff' }} 
-              onClick={() => { setScore(0); setCoinsCollected(0); setLevel('HARD'); setGameState('PLAYING'); }}
+              onClick={() => startGame('HARD')}
             >
               <div style={{ fontWeight: 'bold' }}>TRUDNY</div>
               <div style={{ fontSize: '0.9rem', opacity: 0.8, fontWeight: 'normal' }}>🏆 Rekord: {highscores.HARD}m</div>
             </button>
 
+            {/* Przycisk Sklepu */}
+            <button 
+              style={{ ...buttonStyle, background: '#ffd700', color: '#000', marginTop: '10px', height: '55px' }} 
+              onClick={() => { playClick(); setGameState('SHOP'); }}
+            >
+              <div style={{ fontWeight: 'bold' }}>🛒 SKLEP</div>
+            </button>
+
           </div>
+        </div>
+      )}
+
+      {/* SKLEP */}
+      {gameState === 'SHOP' && (
+        <div style={gameOverOverlayStyle}>
+          <h1 style={{ fontSize: '2.8rem', color: '#ffd700', marginBottom: '5px' }}>KOSMICZNY SKLEP</h1>
+          <div style={{ fontSize: '1.5rem', color: '#fff', marginBottom: '20px', fontWeight: 'bold' }}>
+            Twoje monety: <span style={{ color: '#ffd700' }}>🪙 {totalCoins}</span>
+          </div>
+          <p style={{ color: '#aaa', marginBottom: '20px' }}>Każdy nowy kolor kosztuje <span style={{ color: '#ffd700', fontWeight: 'bold' }}>100 monet</span>. Kliknij, aby kupić lub ustawić jako aktywny.</p>
+
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(5, 1fr)', 
+            gap: '15px', 
+            background: 'rgba(20, 20, 25, 0.85)',
+            padding: '25px',
+            borderRadius: '16px',
+            border: '1px solid #444',
+            marginBottom: '25px'
+          }}>
+            {SHOP_COLORS.map((color, idx) => {
+              const isOwned = ownedColors.includes(color)
+              const isActive = activeColor === color
+
+              return (
+                <div 
+                  key={idx}
+                  onClick={() => handleColorClick(color)}
+                  style={{
+                    width: '60px',
+                    height: '60px',
+                    backgroundColor: color,
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    border: isActive ? '3px solid #fff' : '2px solid rgba(255,255,255,0.2)',
+                    boxShadow: isActive ? `0 0 15px ${color}` : 'none',
+                    transition: '0.2s',
+                    transform: isActive ? 'scale(1.08)' : 'scale(1)'
+                  }}
+                  title={isOwned ? (isActive ? 'Aktywny' : 'Posiadasz (Kliknij by wybrać)') : 'Kup za 100 monet'}
+                >
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '2px', right: '4px',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    color: '#fff',
+                    textShadow: '1px 1px 2px #000'
+                  }}>
+                    {isActive ? '🌟' : (isOwned ? '✓' : '🔒')}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <button style={{ ...buttonStyle, background: '#333', color: '#fff', width: '360px', height: '50px' }} onClick={() => { playClick(); setGameState('MENU'); }}>
+            POWRÓT DO MENU
+          </button>
         </div>
       )}
 
@@ -172,7 +374,7 @@ export default function App() {
             </p>
           </div>
 
-          <button style={{ ...buttonStyle, background: '#444' }} onClick={() => setGameState('MENU')}>
+          <button style={{ ...buttonStyle, background: '#444', width: '420px', height: '50px' }} onClick={() => { playClick(); setGameState('MENU'); }}>
             WRÓĆ DO MENU
           </button>
         </div>
@@ -206,10 +408,10 @@ export default function App() {
           </div>
 
           <div style={{ display: 'flex', gap: '15px', flexDirection: 'column', width: '420px' }}>
-            <button style={buttonStyle} onClick={() => { setScore(0); setCoinsCollected(0); setGameState('PLAYING'); }}>
+            <button style={{ ...buttonStyle, width: '420px', height: '50px' }} onClick={() => startGame(level)}>
               SPRÓBUJ PONOWNIE
             </button>
-            <button style={{ ...buttonStyle, background: '#333', color: '#ccc', fontSize: '1.2rem', padding: '10px 20px' }} onClick={() => setGameState('MENU')}>
+            <button style={{ ...buttonStyle, background: '#333', color: '#ccc', fontSize: '1.2rem', width: '420px', height: '50px' }} onClick={() => { playClick(); setGameState('MENU'); }}>
               MENU GŁÓWNE
             </button>
           </div>
@@ -257,7 +459,6 @@ const statsBoxStyle = {
 }
 
 const buttonStyle = {
-  padding: '10px 40px',
   fontSize: '1.4rem',
   background: '#ff007f',
   color: 'white',
@@ -265,6 +466,7 @@ const buttonStyle = {
   borderRadius: '8px',
   cursor: 'pointer',
   width: '420px',          
+  height: '65px',
   textAlign: 'center',
   transition: '0.2s',
   display: 'flex',
