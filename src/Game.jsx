@@ -159,7 +159,8 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
       const diffX = Math.abs(player.position.x - obs[0])
       const diffZ = Math.abs(player.position.z - obs[2])
       if (diffX < 0.9 && diffZ < 1.0) {
-        setGameState('GAMEOVER')
+        const exactCrashScore = Math.floor(Math.abs(player.position.z))
+        setGameState('GAMEOVER', exactCrashScore)
       }
     })
 
@@ -180,7 +181,7 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
 
     // WARUNEK WYGRANEJ
     if (level !== 'HARD' && player.position.z < -maxRoadLength) {
-      setGameState('WIN')
+      setGameState('WIN', maxRoadLength)
     }
   })
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Stars } from '@react-three/drei'
 import Game from './Game'
@@ -7,9 +7,46 @@ export default function App() {
   const [gameState, setGameState] = useState('MENU') 
   const [score, setScore] = useState(0)
   const [coinsCollected, setCoinsCollected] = useState(0)
-  const [level, setLevel] = useState('EASY') // poziomu ('EASY', 'MEDIUM', 'HARD')
+  const [level, setLevel] = useState('EASY') 
 
-  // Nazwy poziomów
+  const [totalCoins, setTotalCoins] = useState(0)
+  const [highscores, setHighscores] = useState({ EASY: 0, MEDIUM: 0, HARD: 0 })
+
+  useEffect(() => {
+    const savedCoins = localStorage.getItem('total_coins')
+    const savedEasy = localStorage.getItem('highscore_EASY')
+    const savedMedium = localStorage.getItem('highscore_MEDIUM')
+    const savedHard = localStorage.getItem('highscore_HARD')
+
+    if (savedCoins) setTotalCoins(parseInt(savedCoins))
+    setHighscores({
+      EASY: savedEasy ? parseInt(savedEasy) : 0,
+      MEDIUM: savedMedium ? parseInt(savedMedium) : 0,
+      HARD: savedHard ? parseInt(savedHard) : 0
+    })
+  }, [])
+
+  const updateSavedData = (finalScore, finalCoins) => {
+    const newTotalCoins = totalCoins + finalCoins
+    setTotalCoins(newTotalCoins)
+    localStorage.setItem('total_coins', newTotalCoins)
+
+    const currentRecord = highscores[level]
+    if (finalScore > currentRecord) {
+      const updatedHighscores = { ...highscores, [level]: finalScore }
+      setHighscores(updatedHighscores)
+      localStorage.setItem(`highscore_${level}`, finalScore)
+    }
+  }
+
+  const changeGameState = (newState, finalScoreOverride = null) => {
+    if (newState === 'WIN' || newState === 'GAMEOVER') {
+      const exactScore = finalScoreOverride !== null ? finalScoreOverride : score
+      updateSavedData(exactScore, coinsCollected)
+    }
+    setGameState(newState)
+  }
+
   const getLevelName = () => {
     if (level === 'EASY') return 'ŁATWY'
     if (level === 'MEDIUM') return 'ŚREDNI'
@@ -38,7 +75,7 @@ export default function App() {
         {gameState !== 'MENU' && (
           <Game 
             gameState={gameState} 
-            setGameState={setGameState} 
+            setGameState={changeGameState}
             setScore={setScore} 
             setCoinsCollected={setCoinsCollected}
             level={level}
@@ -52,15 +89,23 @@ export default function App() {
       {gameState === 'MENU' && (
         <div style={overlayStyle}>
           <h1 style={{ fontSize: '3rem', marginBottom: '5px', color: '#ff007f' }}>KOSMICZNY WYŚCIG</h1>
-          <p style={{ marginBottom: '30px', color: '#ccc' }}>Unikaj wież, zbieraj złote monety! Wybierz poziom trudności:</p>
+          
+          {/* Stan konta gracza */}
+          <div style={{ fontSize: '1.4rem', color: '#ffd700', marginBottom: '25px', fontWeight: 'bold' }}>
+            🪙 ZGROMADZONE MONETY: {totalCoins}
+          </div>
+
+          <p style={{ marginBottom: '20px', color: '#ccc' }}>Unikaj wież, zbieraj złote monety!</p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>  
+            
             {/* Poziom Łatwy */}
             <button 
               style={{ ...buttonStyle, background: '#ff007f', color: '#fff' }} 
               onClick={() => { setScore(0); setCoinsCollected(0); setLevel('EASY'); setGameState('PLAYING'); }}
             >
-              ŁATWY
+              <div style={{ fontWeight: 'bold' }}>ŁATWY</div>
+              <div style={{ fontSize: '0.9rem', opacity: 0.8, fontWeight: 'normal' }}>🏆 Rekord: {highscores.EASY}m</div>
             </button>
             
             {/* Poziom Średni */}
@@ -68,7 +113,8 @@ export default function App() {
               style={{ ...buttonStyle, background: '#00ffff', color: '#000' }} 
               onClick={() => { setScore(0); setCoinsCollected(0); setLevel('MEDIUM'); setGameState('PLAYING'); }}
             >
-              ŚREDNI
+              <div style={{ fontWeight: 'bold' }}>ŚREDNI</div>
+              <div style={{ fontSize: '0.9rem', opacity: 0.8, fontWeight: 'normal' }}>🏆 Rekord: {highscores.MEDIUM}m</div>
             </button>
             
             {/* Poziom Trudny */}
@@ -76,7 +122,8 @@ export default function App() {
               style={{ ...buttonStyle, background: '#ff0000', color: '#fff' }} 
               onClick={() => { setScore(0); setCoinsCollected(0); setLevel('HARD'); setGameState('PLAYING'); }}
             >
-              TRUDNY
+              <div style={{ fontWeight: 'bold' }}>TRUDNY</div>
+              <div style={{ fontSize: '0.9rem', opacity: 0.8, fontWeight: 'normal' }}>🏆 Rekord: {highscores.HARD}m</div>
             </button>
 
           </div>
@@ -210,17 +257,20 @@ const statsBoxStyle = {
 }
 
 const buttonStyle = {
-  padding: '15px 40px',
-  fontSize: '1.5rem',
+  padding: '10px 40px',
+  fontSize: '1.4rem',
   background: '#ff007f',
   color: 'white',
   border: 'none',
   borderRadius: '8px',
   cursor: 'pointer',
-  fontWeight: 'bold',
   width: '420px',          
   textAlign: 'center',
-  transition: '0.2s'
+  transition: '0.2s',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center'
 }
 
 const ingameHUDStyle = {
