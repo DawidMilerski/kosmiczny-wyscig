@@ -12,6 +12,18 @@ const SHOP_COLORS = [
   '#ffd700', '#ff69b4', '#00fa9a', '#1e90ff', '#9400d3'
 ]
 
+// Lista utworów
+const GAME_PLAYLIST = [
+  '/music.mp3',
+  '/music2.mp3',
+  '/music3.mp3',
+  '/music4.mp3',
+  '/music5.mp3',
+  '/music6.mp3',
+  '/music7.mp3',
+  '/music8.mp3',
+]
+
 export default function App() {
   const [gameState, setGameState] = useState('MENU') 
   const [score, setScore] = useState(0)
@@ -28,11 +40,12 @@ export default function App() {
   const musicRef = useRef(null)
   const clickAudio = useRef(null)
   const crashAudio = useRef(null)
+  const winAudio = useRef(null)
 
   // Inicjalizacja audio
   const initAudio = () => {
     if (!musicRef.current) {
-      musicRef.current = new Audio('/music.mp3')
+      musicRef.current = new Audio(GAME_PLAYLIST[0])
       musicRef.current.loop = true
       musicRef.current.volume = 0.2
       musicRef.current.muted = isMuted
@@ -46,6 +59,11 @@ export default function App() {
       crashAudio.current = new Audio('/crash.mp3')
       crashAudio.current.volume = 0.6
       crashAudio.current.muted = isMuted
+    }
+    if (!winAudio.current) {
+      winAudio.current = new Audio('/win.mp3')
+      winAudio.current.volume = 0.5
+      winAudio.current.muted = isMuted
     }
   }
 
@@ -75,6 +93,7 @@ export default function App() {
     if (musicRef.current) musicRef.current.muted = isMuted
     if (clickAudio.current) clickAudio.current.muted = isMuted
     if (crashAudio.current) crashAudio.current.muted = isMuted
+    if (winAudio.current) winAudio.current.muted = isMuted
     localStorage.setItem('game_muted', isMuted)
   }, [isMuted])
 
@@ -102,8 +121,9 @@ export default function App() {
     setLevel(chosenLevel)
     setGameState('PLAYING')
 
-    // Muzyka
     if (musicRef.current) {
+      const randomIndex = Math.floor(Math.random() * GAME_PLAYLIST.length)
+      musicRef.current.src = GAME_PLAYLIST[randomIndex]
       musicRef.current.currentTime = 0
       musicRef.current.play().catch((e) => console.log("Błąd odtwarzania muzyki:", e))
     }
@@ -127,6 +147,11 @@ export default function App() {
       if (newState === 'GAMEOVER' && crashAudio.current) {
         crashAudio.current.currentTime = 0
         crashAudio.current.play().catch((e) => console.log("Błąd odtwarzania crash:", e))
+      }
+      
+      if (newState === 'WIN' && winAudio.current) {
+        winAudio.current.currentTime = 0
+        winAudio.current.play().catch((e) => console.log("Błąd odtwarzania win:", e))
       }
       const exactScore = finalScoreOverride !== null ? finalScoreOverride : score
       updateSavedData(exactScore, coinsCollected)
