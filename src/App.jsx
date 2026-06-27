@@ -227,7 +227,7 @@ export default function App() {
           </group>
         )}
 
-        {gameState !== 'MENU' && gameState !== 'SHOP' && (
+        {gameState === 'PLAYING' && (
           <Game 
             gameState={gameState} 
             setGameState={changeGameState}
