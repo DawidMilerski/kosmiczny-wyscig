@@ -118,7 +118,8 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
       row.forEach((cell, cellIndex) => {
         const x = xPositions[cellIndex]
         if (cell === 'o') {
-          tempObstacles.push([x, 1, rowZ]) 
+          const randomOffset = (Math.random() - 0.5) * 1.2
+          tempObstacles.push([x + randomOffset, 1, rowZ]) 
         } else if (cell === 'c') {
           tempCoins.push([x, 0.5, rowZ, Math.random().toString(), false])
         }
@@ -209,7 +210,8 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
       return prevObstacles.filter((obs) => {
         const diffX = Math.abs(player.position.x - obs[0])
         const diffZ = Math.abs(player.position.z - obs[2])
-        if (diffX < 0.9 && diffZ < 1.0) {
+        
+        if (diffX < 1.3 && diffZ < 1.0) {
           const exactCrashScore = Math.floor(Math.abs(player.position.z))
           setGameState('GAMEOVER', exactCrashScore)
         }
@@ -302,16 +304,16 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
       {obstacles.map((obs, index) => (
         <group key={index} position={obs}>
           <mesh position={[0, 0, 0]}>
-            <boxGeometry args={[1.2, 2, 1.2]} />
+            <boxGeometry args={[1.8, 2, 1.2]} />
             <meshBasicMaterial 
               color="#00ffcc" 
               transparent={true} 
-              opacity={0.2} 
+              opacity={0.15} 
               blending={2} 
             />
           </mesh>
           <mesh>
-            <boxGeometry args={[0.6, 2, 0.6]} />
+            <boxGeometry args={[1.2, 2, 0.6]} />
             <meshBasicMaterial color="#00ffcc" />
           </mesh>
         </group>
