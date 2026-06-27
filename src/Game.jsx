@@ -91,6 +91,7 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
   const [keys, setKeys] = useState({ ArrowLeft: false, ArrowRight: false })
   const [obstacles, setObstacles] = useState([])
   const [coins, setCoins] = useState([]) 
+  const [buildings, setBuildings] = useState([])
   
   const generatedUntilZ = useRef(-40)
 
@@ -105,9 +106,11 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
     }
   }, [isMuted])
 
+  // GENEROWANIE SEKCJI TRASY
   const generateNextSection = (targetZ) => {
     const tempObstacles = []
     const tempCoins = []
+    const tempBuildings = [] 
     
     const randomSection = SECTIONS[Math.floor(Math.random() * SECTIONS.length)]
 
@@ -124,10 +127,24 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
           tempCoins.push([x, 0.5, rowZ, Math.random().toString(), false])
         }
       })
+
+      // OTOCZENIE
+      if (rowIndex === 0) {
+        const sideX = Math.random() > 0.5 ? 28 : -28
+        
+        tempBuildings.push([
+          sideX, 
+          0,
+          rowZ, 
+          10 + Math.random() * 8,
+          500
+        ])
+      }
     })
 
     setObstacles((prev) => [...prev, ...tempObstacles])
     setCoins((prev) => [...prev, ...tempCoins])
+    setBuildings((prev) => [...prev, ...tempBuildings])
   }
 
   // 1. GENEROWANIE POCZĄTKOWE
@@ -135,6 +152,7 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
     generatedUntilZ.current = -40
     setObstacles([])
     setCoins([])
+    setBuildings([]) 
     setCurrentSpeed(initialSpeed)
 
     let startZ = -40
@@ -181,8 +199,8 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
       generatedUntilZ.current -= sectionSpacing
     }
 
+    // Sterowanie boczno-rotacyjne
     let targetRotation = 0; 
-
     if (keys.ArrowLeft && player.position.x > -4.5) {
       player.position.x -= SIDE_SPEED * delta
       targetRotation = 0.35; 
@@ -194,12 +212,19 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
 
     player.rotation.z += (targetRotation - player.rotation.z) * 0.1
 
+    const absRot = Math.abs(player.rotation.z)
+    const cornerDrop = 0.5 * (Math.sin(absRot) + Math.cos(absRot) - 1)
+    
+    player.position.y = 0.5 + Math.abs(cornerDrop)
+
     const currentScore = Math.floor(Math.abs(player.position.z))
     setScore(currentScore)
 
     state.camera.position.x = player.position.x
+    state.camera.position.y = 2.5
     state.camera.position.z = player.position.z + 8 
-    state.camera.lookAt(player.position.x, player.position.y + 1, player.position.z - 5)
+    
+    state.camera.lookAt(player.position.x, 1.0, player.position.z - 5)
 
     if (starsRef.current) {
       starsRef.current.position.z = player.position.z
@@ -215,11 +240,16 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
           const exactCrashScore = Math.floor(Math.abs(player.position.z))
           setGameState('GAMEOVER', exactCrashScore)
         }
-        return obs[2] < player.position.z + 20
+        return obs[2] < player.position.z + 20 
       })
     })
 
-    // WYKRYWANIE MONET
+    // OPTYMALIZACJA OTOCZENIA: Usuwanie budynków, które zostały daleko w tyle
+    setBuildings((prevBuildings) => {
+      return prevBuildings.filter((b) => b[2] < player.position.z + 40)
+    })
+
+    // ZBIERANIE MONET
     setCoins((prevCoins) => {
       return prevCoins.filter((coin) => {
         if (coin[4] === true) return false
@@ -251,24 +281,38 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
 
   return (
     <group>
+      {/* GWIAZDY W TLE */}
       <group ref={starsRef}>
         <Stars radius={100} depth={50} count={2000} factor={4} saturation={0} fade speed={1} />
       </group>
 
       {/* PODŁOGA */}
-      <Grid
-        position={[0, -0.01, currentFloorZ]}
-        args={[10, currentFloorLength]}
-        cellSize={1} 
-        cellThickness={0.5}
-        cellColor="#221133" 
-        sectionSize={5} 
-        sectionThickness={1}
-        sectionColor={themeColor} 
-        fadeDistance={60} 
-        fadeStrength={1}
-        infiniteGrid={false}
-      />
+      <group>
+        <mesh 
+          rotation={[-Math.PI / 2, 0, 0]} 
+          position={[0, -0.02, currentFloorZ]}
+        >
+          <planeGeometry args={[10, currentFloorLength]} />
+          <meshStandardMaterial 
+            color="#050308"
+            roughness={0.8}
+          />
+        </mesh>
+
+        <Grid
+          position={[0, -0.01, currentFloorZ]}
+          args={[10, currentFloorLength]}
+          cellSize={1} 
+          cellThickness={0.5}
+          cellColor="#221133" 
+          sectionSize={5} 
+          sectionThickness={1}
+          sectionColor={themeColor} 
+          fadeDistance={60} 
+          fadeStrength={1}
+          infiniteGrid={false}
+        />
+      </group>
 
       {/* LINIE BOCZNE */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-5, 0.01, currentFloorZ]}>
@@ -317,6 +361,23 @@ export default function Game({ gameState, setGameState, setScore, setCoinsCollec
             <meshBasicMaterial color="#00ffcc" />
           </mesh>
         </group>
+      ))}
+
+      {/* ELEMENTY OTOCZENIA */}
+      {buildings.map((b, index) => (
+        <mesh key={index} position={[b[0], 0, b[2]]}>
+          <boxGeometry args={[b[3], b[4], b[3]]} />
+          <meshStandardMaterial 
+            color="#0b0b14"
+            roughness={0.3}
+            metalness={0.8}
+          />
+          <Edges 
+            threshold={40} 
+            color={themeColor} 
+            thickness={2.5} 
+          />
+        </mesh>
       ))}
 
       {/* MONETY */}
